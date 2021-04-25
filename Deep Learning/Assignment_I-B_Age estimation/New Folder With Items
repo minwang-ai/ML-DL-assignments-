@@ -1,0 +1,528 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "oa10OpnEvNm9"
+   },
+   "source": [
+    "# Deep learning programming I-B: Age Regression\n",
+    "Felix Wiewel, Institute of Signal Processing and System Theory, University of Stuttgart, 24.04.2020\n",
+    "\n",
+    "## Introduction\n",
+    "This exercise is the second part of the regression homework in the course Deep Learning. While we covered a very basic regression task on synthetic data in the last part, we will now turn to the task of age regression. The task is to infer the age of a person given a potrait picture of him or her. Intuatively this task seems to be easy at first, you are shown a potrait of a person and need to estimate his or her age. But implementing such an estimator on a computer is rather challenging. If you want to use a model based machine learning algorithm, you would need some sort of model or set of rules, which maps the raw pixel values of an image to an estimated age. This would require a lot of expert knowledge and feature design. Fortunately we can use neural networks to learn such a mapping directly from annotated examples, i.e. potraits labeled with the age of the person in the picture. In this way we just need enough examples and don't have to design the probably very complex mapping from pixels to age ourselves. We will build on the mathematical fomulation from the last exercise and take a sligthly different approach for the implementation. So it is recommended to work through the first part of the exercise before starting with this part.\n",
+    "\n",
+    "## GPU support\n",
+    "In order to speed up calculations with Tensorflow, we need to change the runtime type of this notebook to GPU. For this click on \"Runtime\" in the top left menu and select \"Change runtime type\". Then choose \"GPU\" in the drop down list under \"Hardware accelerator\". This will enable Tensorflow to execute calculations on a GPU provided by Google Colab.\n",
+    "\n",
+    "## Data Set\n",
+    "The data set we use in this exercise is called UTKFaces (https://susanqq.github.io/UTKFace/). It contains over $20000$ images of people with ages from the interval $\\left[0,116\\right]$. Although the individual images are labeled with the age, gender and ethnicity, we will only use the age annotation in this exercise. The images in this data set are available in two different sets. The \"In-the-wild Faces\" set contains images in their original size and orientation and the \"Aligned&Cropped Faces\" contains all images with the face aligned in the middle and the size cropped to $200\\times 200$ pixels. Since the aligned and cropped set is simpler to work with and requires less memory, we will use it in this exercise. But before we can use the data set, we have to download it. This is done with the following commands."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "ZaWLfEhUu4QM"
+   },
+   "outputs": [],
+   "source": [
+    "!mkdir data\n",
+    "!gdown https://drive.google.com/uc?id=0BxYys69jI14kYVM3aVhKS1VhRUk\n",
+    "!mv UTKFace.tar.gz data"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "o1pDCzZ6Dk2t"
+   },
+   "source": [
+    "With these commands we created a folder named \"data\" and downloaded the data set into it. The data set is contained in an archive, which needs to be extracted before we can work with it. Since we will need to load individual images in the coming exercise, it makes sense to first extract the data and then retreive a list with all extracted files. For this we first import all necessary packages and then define a function, which extracts the data and returns a list with all available file names and since the labels are encoded in the file names we directly extract a corresponding list of labels."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "9Rysv6DCDkft"
+   },
+   "outputs": [],
+   "source": [
+    "import tarfile\n",
+    "import os\n",
+    "import glob\n",
+    "import tensorflow as tf\n",
+    "import tensorflow.keras as k\n",
+    "import matplotlib.pyplot as plt\n",
+    "import numpy as np\n",
+    "\n",
+    "def load_file_names():\n",
+    "    # Check if data has been extracted and if not extract it\n",
+    "    if (os.path.isdir(\"./data/UTKFace\")):\n",
+    "        print(\"Data set already extracted...\")\n",
+    "    else:\n",
+    "        print(\"Extracting data set...\")\n",
+    "        tar = tarfile.open(\"./data/UTKFace.tar.gz\")\n",
+    "        tar.extractall(\"./data\")\n",
+    "        tar.close()\n",
+    "\n",
+    "    # Get a list of all files in data set\n",
+    "    files = glob.glob(\"./data/UTKFace/*.jpg\")\n",
+    "    labels = [int(f_name.split(\"/\")[-1].split(\"_\")[0]) for f_name in files]\n",
+    "    return files, labels"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "XUCJEBM1EY-z"
+   },
+   "source": [
+    "We can now use this function to plot an individual image and the age of the person in that image.."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "lhV-eakrE0XB"
+   },
+   "outputs": [],
+   "source": [
+    "files, labels = load_file_names()\n",
+    "img = plt.imread(files[0])\n",
+    "plt.imshow(img)\n",
+    "plt.title(\"Age: {}\".format(labels[0]))\n",
+    "plt.axis(\"off\")\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "dYW0N607dHFk"
+   },
+   "source": [
+    "We should also check the distribution of the labels. For this we will print the unique labels contained in our data set."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "fLOkahM9dTxI"
+   },
+   "outputs": [],
+   "source": [
+    "print(np.unique(labels))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "2VkgukOnaDI9"
+   },
+   "source": [
+    "As we can see, the data set contains only integer values as the age label. With such a distribution of labels you could also try to solve the problem of mapping an input image to an age by classifiaction. This is a valid approach but not the one we are interested in. We want to take an image of a person and regress his or her age exactly. Since the potraits in our training data set were certainly not taken in the exact moment that person's age was exactly an integer, we can conclude that the labeling is not well suited for our problem. But since these are the only labels we get for this data set, we have to use them and accept the slightly incorrect labels. We can also think of this discrepancy between the exact age of the person when the photo was taken and the assigned label as noise, i.e. we are given noisy labels.\n",
+    "\n",
+    "In this exercise we will use a slightly different way to define our model when compared with the previous part. This time we will derive a new model class from the Model class provided by Keras. This comes with several advantages. First, we can use predefined layer classes from Keras in order to build our model. See the [documentation](https://www.tensorflow.org/versions/r2.2/api_docs/python/tf/keras/layers) for a list of all available layers and detailed information on how to use them. Second, we don't need to manage the variables which store the weights of our model manually. Keras takes care of this and provides a list of all trainable variables of the model. Third, we can use the fit and fit_generator function of a Keras model in order to easily train our model. These functions offer a simple interface to implement a lot of different ways for training. But since sometimes one needs to implement a custom training loop, we will not use this function yet but rather implement our own training loop. Now your task is to define a suitable model architecture for the regression of a scalar value like the age of a person from an image."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "v4Kd0bwDcgKH"
+   },
+   "outputs": [],
+   "source": [
+    "\"\"\" Implement a small CNN with two convolutional and three dense layers. The conv. layers should have 8 and 16 filters of size 5x5, astride of 4 and a ReLU activation. Also create a flatten layer and a dropout layer \n",
+    "with 0.2 droprate. The dense layers should have 128, 64 and 1 neurons and again a ReLU activation. For implementing the layers use predefined layer classes of Keras, e.g. k.layers.Conv2D or k.layers.Dense. \n",
+    "Hint: Create the layer objects in the constructor and call them in the right order for implementing the forward pass. You need to pass the \"training\" argument to the dropout layer in order to activate dropout during \n",
+    "training and deactivate it during testing. \"\"\"\n",
+    "\n",
+    "class MyModel(k.Model):\n",
+    "    def __init__(self):\n",
+    "        # Create layers\n",
+    "        super(MyModel, self).__init__()\n",
+    "        self.conv0 = \n",
+    "        self.conv1 = \n",
+    "        self.flatten = \n",
+    "        self.dropout = \n",
+    "        self.dense0 = \n",
+    "        self.dense1 = \n",
+    "        self.dense2 = \n",
+    "\n",
+    "    def call(self, inputs, training=False):\n",
+    "        # Implement forward pass\n",
+    "        output = \n",
+    "        output = \n",
+    "        output = \n",
+    "        output = \n",
+    "        output = \n",
+    "        output = \n",
+    "        output = \n",
+    "        return output"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "qjT0wAvsfrWC"
+   },
+   "source": [
+    "Notice that in the previous part we defined a \\__call__ function and now define a call function. This call function is required by Keras but we can still predict with the model just by calling it on an input tensor. For training the model we again need to define some hyperparameters."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "VWErNUSCfxYu"
+   },
+   "outputs": [],
+   "source": [
+    "N_epochs = 20\n",
+    "learning_rate = 0.001\n",
+    "batch_size = 64\n",
+    "N_training_examples = 20000\n",
+    "N_validation_examples = 4*batch_size\n",
+    "\n",
+    "N_parallel_iterations = 4\n",
+    "N_prefetch = 8\n",
+    "N_shuffle_buffer = 20000"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "GWP_R8I9f5oy"
+   },
+   "source": [
+    "We will train the model for $20$ epochs with a batch size of $64$ and a learning rate of $0.001$.  We will use $20000$ examples for training $4$ batches for validation and the remaining data for testing of the model. We also define some parameters, which are used to create the Dataset objects. With these definitions we can build the data set objects used for training, validation and testing."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "tDmQ11FQgeGP"
+   },
+   "outputs": [],
+   "source": [
+    "\"\"\" Since we only have the file name and labels of the images, we need to actually load an image into system memory if it is needed. For this we will define a function that parses the image, normalizes it and reshapes \n",
+    "the label. This reshaping is a technical detail that avoids unintended behaivior during the calculation of the loss, i.e. it avoids unintended broadcasting. Your task is to fill in the missing code for loading, \n",
+    "decoding and normalizing the image. In this example we normalize the image to pixels in the range between 0 and 1. Hint: For reading and decoding the image use the functions defined in tf.io. The images are stored in the\n",
+    "JPEG format.\"\"\"\n",
+    "\n",
+    "def parse_func(filename, label):\n",
+    "    image_string = # Read the image\n",
+    "    image_decoded = # Decode the image\n",
+    "    image = # Normalize the image\n",
+    "    label = tf.expand_dims(tf.cast(label, tf.float32), axis=-1)\n",
+    "    return image, label\n",
+    "\n",
+    "\"\"\" We now build a tensorflow Dataset object that shuffles the data with a shuffle buffer of size \"N_shuffle_buffer\", applies the parse_func via the .map() function with \"N_parallel_iterations\", creates batches \n",
+    "of size \"batch_size\" and prefetches with \"N_prefetch\". Please fill in the missing code. \"\"\"\n",
+    "  \n",
+    "def build_dataset(files, labels, batch_size):\n",
+    "    # Create tf data set\n",
+    "    ds = # Create data set of files and labels\n",
+    "    ds = # Enable shuffling\n",
+    "    ds = # Apply parse_func\n",
+    "    ds = # Batch and prefetch\n",
+    "    return ds\n",
+    "\n",
+    "# Shuffle data and labels\n",
+    "train_ds = build_dataset(files[0:N_training_examples],\n",
+    "                                     labels[0:N_training_examples], batch_size)\n",
+    "validation_ds = build_dataset(files[N_training_examples:N_training_examples+N_validation_examples],\n",
+    "                                          labels[N_training_examples:N_training_examples+N_validation_examples],\n",
+    "                                          batch_size)\n",
+    "test_ds = build_dataset(files[N_training_examples+N_validation_examples:],\n",
+    "                                    labels[N_training_examples+N_validation_examples:], batch_size)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "s_oV4_VThr5f"
+   },
+   "source": [
+    "Since the we loaded the file names of individual images and their corresponding labels, we need to load the actual image given its filename. For this we use the map function of the Dataset class. This function applies a function, in our case the parse_func function, to every sample in a batch. The parse_func function then reads the actual image given its name, decodes and normalizes it. It also makes sure that we use the correct dimensions and data types. With the build_dataset function we can then build a Dataset obejct, which first shuffles then applies the parse_func function and finnaly batches the data. In order to iterate many times over the data set, we repeat this process indefenetly.\n",
+    "\n",
+    "In order to train the model, we again use a function which does one training step. This function is similar to the previous part of this exercise with the addition of the @tf.function decorator, which tells Tensorflow to build this function as a graph in order to speed up repeated calls to it. We also use the mean absolute error (MAE) as a loss for training the model. This loss can be derived in the same way as in the previous part if we assume laplacian distributed noise in out signal model."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "yjMgN61ijYD2"
+   },
+   "outputs": [],
+   "source": [
+    "\"\"\" For this application we will use the Mean Absolute Error (MAE) as a loss function for training. Please implement the loss and the training step.\"\"\"\n",
+    "\n",
+    "# Define loss function\n",
+    "def loss(y, y_pred):\n",
+    "    return # MAE between \"y\" and \"y_pred\"\n",
+    "\n",
+    "# Define training step as a complete graph\n",
+    "@tf.function\n",
+    "def train_step(model, optimizer, x, y):\n",
+    "    with tf.GradientTape() as tape:\n",
+    "        tape.watch(model.trainable_variables)\n",
+    "        y_pred = # Predict with model on \"x\"\n",
+    "        loss_val = # Compute the loss with \"y\" and \"y_pred\"\n",
+    "    grads = tape.gradient(loss_val, model.trainable_variables)\n",
+    "    optimizer.apply_gradients(zip(grads, model.trainable_variables))\n",
+    "    return loss_val"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "ZuoE9caslOI1"
+   },
+   "source": [
+    "Now we just need to instantiate an instance of our model and an optimizer in order to start training. We also build the model in order to be able to print it's summary."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "uQ1C4NEklURm"
+   },
+   "outputs": [],
+   "source": [
+    "mdl = MyModel()\n",
+    "opt = tf.optimizers.RMSprop(learning_rate)\n",
+    "mdl.build((batch_size, 200, 200, 3))\n",
+    "mdl.summary()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "NSn4sAMflaKI"
+   },
+   "source": [
+    "We use a similar loop as in the previous part of this exercise for training."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "C1HPWl5Cl0DR"
+   },
+   "outputs": [],
+   "source": [
+    "# Run training\n",
+    "epoch = 0\n",
+    "train_loss = 0.0\n",
+    "train_iters = 0\n",
+    "for train_images, train_labels in train_ds:\n",
+    "    train_loss += # Perform a train step\n",
+    "    train_iters += 1\n",
+    "    if # An epoch is completed\n",
+    "        epoch += 1\n",
+    "        val_loss = 0.0\n",
+    "        val_iters = 0\n",
+    "        for val_images, val_labels in validation_ds:\n",
+    "            y_pred = # Predict on validation images\n",
+    "            loss_val = # Compute loss for validation\n",
+    "            val_loss += loss_val\n",
+    "            val_iters += 1\n",
+    "            if val_iters == int(N_validation_examples/batch_size):\n",
+    "                print(\"Epoch: {} Training loss: {:.5} Validation loss {:.5}\"\n",
+    "                      .format(epoch, train_loss/train_iters, val_loss/val_iters))\n",
+    "                break\n",
+    "        train_loss = 0.0\n",
+    "        train_iters = 0\n",
+    "    if epoch == N_epochs:\n",
+    "        break"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "IkdWtN69Khno"
+   },
+   "source": [
+    "Testing the model on the test data set is also similar to the previous part of this exercise."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "t13d1a0xKrx3"
+   },
+   "outputs": [],
+   "source": [
+    "# Test model\n",
+    "Num_test_batches = int((len(files)-N_validation_examples-N_validation_examples)/batch_size)\n",
+    "test_loss = 0.0\n",
+    "test_iters = 0\n",
+    "for test_images, test_labels in test_ds:\n",
+    "    y_pred = # Predict on test images\n",
+    "    test_loss += # Compute test loss\n",
+    "    test_iters += 1\n",
+    "    if test_iters == Num_test_batches:\n",
+    "        print(\"Test loss: {:.5}\".format(test_loss/test_iters))\n",
+    "        break"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "rMOKzIG8SUbq"
+   },
+   "source": [
+    "We again can compare the training, validation and test losses in order to verify if our model is overfitting or not. We can now also upload our own images and predict on them. For this we need to upload an image which contains a quadratic potrait with the face aligned in the center."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "hmZMBW8eSUI9"
+   },
+   "outputs": [],
+   "source": [
+    "from google.colab import files\n",
+    "uploaded = files.upload()\n",
+    "fn = list(uploaded.keys())[0]\n",
+    "  "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "0qHY4pl1Suzv"
+   },
+   "source": [
+    "Now we do a prediction  and plot the result."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 0,
+   "metadata": {
+    "colab": {},
+    "colab_type": "code",
+    "id": "GW1trSa7SxfF"
+   },
+   "outputs": [],
+   "source": [
+    "\"\"\" For predicting on the uploaded image, open and decode it using tf.io. After that we also need to normalize and resize it using tf.image.resize. Hint: For predicting with our model we need to add a batch dimension\n",
+    "of 1, since we effectively feed our model with a batch containing only one image.\"\"\"\n",
+    "\n",
+    "\n",
+    "# Load and predict on an image\n",
+    "image_string = # Load image with path \"fn\"\n",
+    "image_decoded = # Decode the image and add a batch dimension\n",
+    "image = # Normalize, resize to 200x200 pixels and cast image to tf.float32\n",
+    "age = mdl(image)\n",
+    "\n",
+    "# Plot image and prediction\n",
+    "plt.imshow(np.squeeze(image.numpy()))\n",
+    "plt.title(\"Age prediction: {:.3}\".format(np.squeeze(age.numpy())))\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "colab_type": "text",
+    "id": "uULbhmkTIK4y"
+   },
+   "source": [
+    "## Conclusion\n",
+    "In this part of the exercise we have applied the concept of regression to the problem of estimating the age of a person from his or her potrait. In this process we have seen how to load images from their filenames with the map function of the Dataset class. With this, images are loaded just in time as they are needed, which is beneficial if you are working with a large number of high resolution images that do not fit into your system memory all at once. We also used Keras in order to build our model from predefined layers. If the layers you need for building your model are available through Keras, it is highly recommended to use those in order to speed up develpment time and reduce possible error sources. We also observed that the labeling of the individual images is not optimal for our task, since it is rounded to integer ages and in the setting of regression we would rather like to have continuous age labels."
+   ]
+  }
+ ],
+ "metadata": {
+  "accelerator": "GPU",
+  "colab": {
+   "collapsed_sections": [],
+   "name": "Age_regression_task.ipynb",
+   "provenance": [
+    {
+     "file_id": "11Yvr26lp_Yv0UAcith6xpY9QgbZHuJF0",
+     "timestamp": 1562076294689
+    },
+    {
+     "file_id": "1QGa9t8a7AXIT8j0MUNIreJBZEEVgEGO-",
+     "timestamp": 1559828019631
+    },
+    {
+     "file_id": "1jurik7CuCW9wO7cQKGBYj2Dfz-nJkjBc",
+     "timestamp": 1559819843632
+    }
+   ],
+   "version": "0.3.2"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.2"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 1
+}
