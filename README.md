@@ -1,4 +1,8 @@
 # ML-DL-assignments
 
 
-course homework in University
+programming course homework in University
+
+machine learning
+deep learning
+image science
