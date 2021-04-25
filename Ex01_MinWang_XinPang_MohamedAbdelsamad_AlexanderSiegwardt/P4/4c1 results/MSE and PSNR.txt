@@ -1,0 +1,44 @@
+camera_q1_uni_0.125.pgm
+MSE: 0.036636, PSNR: 143.892410
+
+camera_q4_uni_0.125.pgm
+MSE: 0.000748, PSNR: 182.810623
+
+camera_q8_uni_0.125.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_uni_0.25.pgm
+MSE: 0.095230, PSNR: 134.339859
+
+camera_q4_uni_0.25.pgm
+MSE: 0.000748, PSNR: 182.810623
+
+camera_q8_uni_0.25.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_uni_0.5.pgm
+MSE: 0.095230, PSNR: 134.339859
+
+camera_q4_uni_0.5.pgm
+MSE: 0.000748, PSNR: 182.810623
+
+camera_q8_uni_0.5.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_uni_1.pgm
+MSE: 0.095230, PSNR: 134.339859
+
+camera_q4_uni_1.pgm
+MSE: 0.000748, PSNR: 182.810623
+
+camera_q8_uni_1.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_uni_5.pgm
+MSE: 1.712418, PSNR: 105.446205
+
+camera_q4_uni_5.pgm
+MSE: 0.023209, PSNR: 148.457581
+
+camera_q8_uni_5.pgm
+MSE: 0.000095, PSNR: 203.403000

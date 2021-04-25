@@ -1,0 +1,23 @@
+Please add the names and matriculation numbers of the group members to the .txt file
+
+ Exercise 4: (11/12)
+    a) Ok
+    b) Using multiplication to calculate a square is usually faster than using pow
+    You are not summing up the mse values. You should use += instead of = or 
+    mse = mse + ... (-1P)
+    c) Ok.
+    The measured MSE and PSNR values are not correct, see b, but since this is a follow up mistake, no points subtracted.
+    In general, you shouldn't use jpg to store picture where you want to show what your algorithms do since jpg adds compression artefacts.
+    png would probably be better suited for such a task.
+
+Exercise 5: (4/6)
+	5a) 1/2
+	The point in the centre corresponds to a frequency of 0 (rescaled average grey value).
+	The other two (symmetric) points correspond to the single frequency ("the wave") from the image.
+
+	5b) 1/2
+	Gaussian is cut off at the image boundary, cutt-of errors at the boundaries
+
+	5c) 2/2
+	Some beams do not go out radially from the center.
+	They are the result of high frequencies which don't fit in the Fourier spectrum

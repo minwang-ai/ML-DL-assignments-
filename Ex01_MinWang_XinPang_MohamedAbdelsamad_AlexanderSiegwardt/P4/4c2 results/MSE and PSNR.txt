@@ -1,0 +1,44 @@
+camera_q1_gauss_0.125.pgm
+MSE: 0.036636, PSNR: 143.892410
+
+camera_q4_gauss_0.125.pgm
+MSE: 0.000748, PSNR: 182.810623
+
+camera_q8_gauss_0.125.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_gauss_0.25.pgm
+MSE: 0.036636, PSNR: 143.892410
+
+camera_q4_gauss_0.25.pgm
+MSE: 0.001236, PSNR: 177.784332
+
+camera_q8_gauss_0.25.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_gauss_0.5.pgm
+MSE: 0.036636, PSNR: 143.892410
+
+camera_q4_gauss_0.5.pgm
+MSE: 0.001236, PSNR: 177.784332
+
+camera_q8_gauss_0.5.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_gauss_1.pgm
+MSE: 0.036636, PSNR: 143.892410
+
+camera_q4_gauss_1.pgm
+MSE: 0.001236, PSNR: 177.784332
+
+camera_q8_gauss_1.pgm
+MSE: 0.000004, PSNR: 235.591766
+
+camera_q1_gauss_5.pgm
+MSE: 1.419449, PSNR: 107.322586
+
+camera_q4_gauss_5.pgm
+MSE: 0.025650, PSNR: 147.457382
+
+camera_q8_gauss_5.pgm
+MSE: 0.000095, PSNR: 203.403000
